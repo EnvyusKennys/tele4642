@@ -4,8 +4,6 @@ from mininet.net import Mininet
 from mininet.node import Controller, RemoteController
 from mininet.cli import CLI
 from mininet.topo import Topo
-from mininet.util import irange, dumpNodeConnections
-from mininet.log import setLogLevel
 from mininet.link import Link, TCLink
 
 # net = Mininet(topo, link = TCLink, controller=None, autoSetMacs=True, autoStaticArp = True)
@@ -24,14 +22,14 @@ class fattree(Topo):
         self.CoreSwitch = (k/2)**2
         self.AggrSwitch = k*k/2
         self.EdgeSwitch = k*k/2
-        self.Host = self.EdgeSwitch * k/2  # each edge switch connects two hosts
+        self.Hosts = self.EdgeSwitch * k/2  # each edge switch connects two hosts
         Topo.__init__(self)
 
     def createTopo(self):
         self.generateCoreSwitch(self.CoreSwitch)
         self.generateAggrSwitch(self.AggrSwitch)
         self.generateEdgeSwitch(self.EdgeSwitch)
-        self.generateHost(self.Host)
+        self.generateHost()
 
     # Switch and Host
     # func to create the switch
@@ -43,20 +41,21 @@ class fattree(Topo):
             # Unsolved with the label
 
     def generateCoreSwitch(self, i):
-        self.createSwitch(i, 'cr', Core)
+        self.createSwitch(i, 'cr', self.Core)
 
     def generateAggrSwitch(self, i):
-        self.createSwitch(i, 'ag', Aggr)
+        self.createSwitch(i, 'ag', self.Aggr)
 
     def generateEdgeSwitch(self, i):
-        self.createSwitch(i, 'ed', Edge)
+        self.createSwitch(i, 'ed', self.Edge)
 
-    def generateHost(self, i):
+    def generateHost(self):
         for num in range(0, self.pod):
             for x in range(0, self.pod/2):
-                for y in range(2, self.pod/2+1):
-                    self.Hostlist.append(self.addHost(
+                for y in range(2, (self.pod/2) + 2):  # in order to loop between 2,3
+                    self.Host.append(self.addHost(
                         '10.' + str(num) + '.' + str(x) + '.' + str(y)))
+                    print('10.' + str(num) + '.' + str(x) + '.' + str(y))
             # incr between[2,k/2+1]
     # Link
 
@@ -77,18 +76,26 @@ class fattree(Topo):
                     self.addLink(
                         self.Aggr[i + j], self.Edge[i + k])
         # edge to host
+        for i in range(0, self.EdgeSwitch):
+            for j in range(0, self.pod/2):
+                self.addLink(self.Edge[i], self.Host[j + (self.pod/2) * i])
 
 
 def main(pod, ip='127.0.0.1', port=6633):
     topo = fattree(pod)
-    topo.createTopo
-    topo.createlink()
+    topo.createTopo()
+    topo.createLink()
     net = Mininet(topo, link=TCLink, controller=None,
                   autoSetMacs=True, autoStaticArp=True)
     net.addController('controller', controller=RemoteController,
                       ip="127.0.0.1", port=6633, protocols="OpenFlow13")
     net.start()
-
+    CLI(net)
+    net.pingAll()
     # openflow13 ???
 
 # DPID for labelling?
+
+
+if __name__ == '__main__':
+    main(4)
