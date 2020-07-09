@@ -52,9 +52,12 @@ class fattree(Topo):
         self.createSwitch(i, 'ed', Edge)
 
     def generateHost(self, i):
-        # Unsolved
-        for num in range(0, i):
-            self.Hostlist.append(self.addHost('10.0' + str(i)))
+        for num in range(0, self.pod):
+            for x in range(0, self.pod/2):
+                for y in range(2, self.pod/2+1):
+                    self.Hostlist.append(self.addHost(
+                        '10.' + str(num) + '.' + str(x) + '.' + str(y)))
+            # incr between[2,k/2+1]
     # Link
 
     def createLink(self):
@@ -87,3 +90,5 @@ def main(pod, ip='127.0.0.1', port=6633):
     net.start()
 
     # openflow13 ???
+
+# DPID for labelling?
