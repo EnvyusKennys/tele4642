@@ -13,6 +13,7 @@ from mininet.link import Link, TCLink
 
 
 class fattree(Topo):
+
     Core = []
     Aggr = []
     Edge = []
@@ -23,7 +24,7 @@ class fattree(Topo):
         self.CoreSwitch = (k/2)**2
         self.AggrSwitch = k*k/2
         self.EdgeSwitch = k*k/2
-        self.Host = self.EdgeSwitch * 2  # each edge switch connects two hosts
+        self.Host = self.EdgeSwitch * k/2  # each edge switch connects two hosts
         Topo.__init__(self)
 
     def createTopo(self):
@@ -36,26 +37,43 @@ class fattree(Topo):
     # func to create the switch
     # i = num of switches, level = which level the switch belongs
     def createSwitch(self, i, level, list):
-        list.append(self.addSwitch())  # mininet.topo.Topo.addSwitch
-        # Unsolved
+        for num in range(0, i):
+            # mininet.topo.Topo.addSwitch
+            list.append(self.addSwitch(level + 'Sw' + str(i)))
+            # Unsolved with the label
 
     def generateCoreSwitch(self, i):
-        self.createSwitch(i, 1, Core)
+        self.createSwitch(i, 'cr', Core)
 
     def generateAggrSwitch(self, i):
-        self.createSwitch(i, 2, Aggr)
+        self.createSwitch(i, 'ag', Aggr)
 
     def generateEdgeSwitch(self, i):
-        self.createSwitch(i, 3, Edge)
+        self.createSwitch(i, 'ed', Edge)
 
     def generateHost(self, i):
-        self.Hostlist.append(self.addHost())
         # Unsolved
+        for num in range(0, i):
+            self.Hostlist.append(self.addHost('10.0' + str(i)))
     # Link
 
     def createLink(self):
-        self.addLink()
         # Unsolved
+
+        # core to agg
+        for i in range(0, self.AggrSwitch, self.pod/2):  # loop through each pod
+            for j in range(0, self.pod/2):  # loop through aggr sw in pod
+                for k in range(0, self.pod/2):  # loop through core sw correspond to one pod
+                    self.addLink(
+                        self.Core[k + j * (self.pod/2)], self.Aggr[i + j])
+
+        # agg to edge
+        for i in range(0, self.EdgeSwitch, self.pod/2):  # loop through each pod
+            for j in range(0, self.pod/2):  # loop through Aggr sw in each pod
+                for k in range(0, self.pod/2):  # loop through Edge sw in each pod
+                    self.addLink(
+                        self.Aggr[i + j], self.Edge[i + k])
+        # edge to host
 
 
 def main(pod, ip='127.0.0.1', port=6633):
@@ -67,3 +85,5 @@ def main(pod, ip='127.0.0.1', port=6633):
     net.addController('controller', controller=RemoteController,
                       ip="127.0.0.1", port=6633, protocols="OpenFlow13")
     net.start()
+
+    # openflow13 ???
