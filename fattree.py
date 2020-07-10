@@ -35,10 +35,18 @@ class fattree(Topo):
     # func to create the switch
     # i = num of switches, level = which level the switch belongs
     def createSwitch(self, i, level, list):
-        for num in range(0, i):
-            # mininet.topo.Topo.addSwitch
-            list.append(self.addSwitch(level + 'Sw' + str(i)))
-            # Unsolved with the label
+        if (level == 'cr'):
+            for num in range(0, i):
+                # mininet.topo.Topo.addSwitch
+                list.append(self.addSwitch('crSw' + str(num)))
+                print('crSw' + str(num))
+        else:
+            for x in range(0, self.pod):
+                for y in range(0, self.pod/2):
+                    list.append(self.addSwitch(
+                        level + 'Sw' + str(x) + str(y)))
+                print(level + 'Sw' + str(x) + str(y))
+        # Unsolved with the label
 
     def generateCoreSwitch(self, i):
         self.createSwitch(i, 'cr', self.Core)
@@ -90,10 +98,10 @@ def main(pod, ip='127.0.0.1', port=6633):
     net.addController('controller', controller=RemoteController,
                       ip="127.0.0.1", port=6633, protocols="OpenFlow13")
     net.start()
-    CLI(net)
     net.pingAll()
-    # openflow13 ???
+    CLI(net)
 
+    # openflow13 initializing???
 # DPID for labelling?
 
 
