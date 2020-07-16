@@ -45,7 +45,7 @@ class fattree(Topo):
                 for y in range(0, self.pod/2):
                     list.append(self.addSwitch(
                         level + 'Sw' + str(x) + str(y)))
-                print(level + 'Sw' + str(x) + str(y))
+                    print(level + 'Sw' + str(x) + str(y))
         # Unsolved with the label
 
     def generateCoreSwitch(self, i):
@@ -100,7 +100,7 @@ def main(pod, ip='127.0.0.1', port=6633):
     net.start()
     net.pingAll()
     CLI(net)
-
+    net.stop()
     # openflow13 initializing???
 # DPID for labelling?
 
