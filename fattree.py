@@ -5,6 +5,7 @@ from mininet.node import Controller, RemoteController
 from mininet.cli import CLI
 from mininet.topo import Topo
 from mininet.link import Link, TCLink
+from mininet.log import setLogLevel
 
 # net = Mininet(topo, link = TCLink, controller=None, autoSetMacs=True, autoStaticArp = True)
 # net.addController('controller', controller=RemoteController, ip = "127.0.0.1", port = 6633, protocols="OpenFlow13")
@@ -90,19 +91,19 @@ class fattree(Topo):
 
 
 def main(pod, ip='127.0.0.1', port=6633):
+    setLogLevel('info')
     topo = fattree(pod)
     topo.createTopo()
     topo.createLink()
-    net = Mininet(topo, link=TCLink, controller=None,
+    net = Mininet(topo, controller=RemoteController(ip='127.0.0.1', name='Ryu'),
                   autoSetMacs=True, autoStaticArp=True)
-    net.addController('controller', controller=RemoteController,
-                      ip="127.0.0.1", port=6633, protocols="OpenFlow13")
+    # net = Mininet(topo, link=TCLink, controller=None,
+    #               autoSetMacs=True, autoStaticArp=True)
+    # net.addController('controller', controller=RemoteController,
+    #                   ip="127.0.0.1", port=6633, protocols="OpenFlow13")
     net.start()
-    net.pingAll()
     CLI(net)
     net.stop()
-    # openflow13 initializing???
-# DPID for labelling?
 
 
 if __name__ == '__main__':
