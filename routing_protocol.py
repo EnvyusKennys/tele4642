@@ -40,3 +40,29 @@ class ryu(app_manager.Ryuapp):
         self.add_flow(datapath, match, actions, priority=0)
 
         dpid = datapath.id
+
+        if dpid[0:2] == 'cr':    # need to be fixed, for core sw
+            for i in range(k):
+                port = 1 + i
+                ip = ('10.0.'+str(i)+'.0', '255.255.255.0')
+                self.add_ip(datapath, ip, port, priority=1)
+
+        elif dpid[0:2] == 'ag':  # for aggr sw
+            for i in range(k / 2):
+                port = 1     # unfixed for suffix port
+                ip = ('0.0.0.' + str(i + 2), '0.0.0.255')
+                self.add_ip(datapath, ip, port, priority=1)
+            for i in range(k / 2):
+                port = 1 + i
+                ip = ('10.1.'+str(i)+'.0', '255.255.255.0')
+                self.add_ip(datapath, ip, port, priority=10)
+        elif dpid[0:2] == 'ed':
+            for i in range(k / 2):
+                port = 1
+                ip = ('0.0.0.' + str(i + 2), '0.0.0.255')
+                self.add_ip(datapath, ip, port, priority=1)
+            for i in range(k / 2):
+                port = 1 + i
+                ip = ('10.2.'+str(i)+'.0', '255.255.255.0')
+                self.add_ip(datapath, ip, port, priority=10)
+        
