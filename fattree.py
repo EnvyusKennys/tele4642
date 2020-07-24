@@ -6,6 +6,7 @@ from mininet.cli import CLI
 from mininet.topo import Topo
 from mininet.link import Link, TCLink
 from mininet.log import setLogLevel
+import os
 
 # net = Mininet(topo, link = TCLink, controller=None, autoSetMacs=True, autoStaticArp = True)
 # net.addController('controller', controller=RemoteController, ip = "127.0.0.1", port = 6633, protocols="OpenFlow13")
@@ -89,6 +90,16 @@ class fattree(Topo):
             for j in range(0, self.pod/2):
                 self.addLink(self.Edge[i], self.Host[j + (self.pod/2) * i])
 
+    def setOvs(self):
+        self.setproto(self.Core)
+        self.setproto(self.Aggr)
+        self.setproto(self.Edge)
+
+    def setproto(self, list):
+        for sw in list:
+            cmd = "sudo ovs-vsctl set bridge %s protocols=OpenFlow13" % sw
+            os.system(cmd)
+
 
 def main(pod, ip='127.0.0.1', port=6633):
     setLogLevel('info')
@@ -102,6 +113,7 @@ def main(pod, ip='127.0.0.1', port=6633):
     # net.addController('controller', controller=RemoteController,
     #                   ip="127.0.0.1", port=6633, protocols="OpenFlow13")
     net.start()
+    topo.setOvs()
     CLI(net)
     net.stop()
 
