@@ -79,21 +79,22 @@ class ryu(app_manager.RyuApp):
                 self.add_ip(datapath, ip, port, priority=1)
 
         elif pod < k and num >= k/2:  # Aggr Switch
-            for i in range(k / 2):
-                port = (((i - 2 + num) % (k / 2)) + k / 2) + 1
+            for i in range(int(k / 2)):
+                port = (((i - 2 + num) % (int(k / 2))) + int(k / 2)) + 1
                 ip = ('0.0.0.{}'.format(i + 2), '0.0.0.255')
                 self.add_ip(datapath, ip, port, priority=1)
-            for i in range(k / 2):
+            for i in range(int(k / 2)):
                 port = i + 1
                 ip = ('10.{}.{}.0'.format(pod, i), '255.255.255.0')
                 self.add_ip(datapath, ip, port, priority=10)
 
         elif pod < k and num < k/2:  # Edge Switch
-            for i in range(k / 2):
+            for i in range(int(k / 2)):
                 port = i + 1
                 ip = ('10.{}.{}.{}'.format(pod, num, i + 2))
                 self.add_ip(datapath, ip, port, priority=10)
-            for i in range(k / 2):
-                port = (((i - 2 + num) % (k / 2)) + k / 2) + 1
-                ip = ('0.0.0.{}'.format(i+2), '0.0.0.255')
+            for i in range(int(k / 2)):
+                port = (((i - 2 + num) % (int(k / 2))) + int(k / 2)) + 1
+                ip = ('0.0.0.{}'.format(i + 2), '0.0.0.255')
                 self.add_ip(datapath, ip, port, priority=1)
+
