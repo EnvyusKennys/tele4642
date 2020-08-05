@@ -25,7 +25,8 @@ class Topo(Topo):
         # generate the servers
         info('*** Add servers and ctrl switch\n')
         for i in range(1, 4):
-            Ss.append(self.addHost('s%s' % i, mac='00:00:00:00:00:0%s' % i))
+            Ss.append(self.addHost('s%s' %
+                                   (i - 1), mac='00:00:00:00:00:0%s' % i))
             print('Server s%s added' % i)
             Cs.append(self.addSwitch(
                 'ctrlSw' + str(i - 1), dpid='000000000000000' + str(i)))
