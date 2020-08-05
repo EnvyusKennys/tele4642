@@ -11,9 +11,9 @@ import sys
 num = int(sys.argv[1])
 
 
-class FatTopo(Topo):
+class Topo(Topo):
     def __init__(self, k, **opts):
-        super(FatTopo, self).__init__(**opts)
+        super(Topo, self).__init__(**opts)
         Hs = []
         Ss = []
         Cs = []
@@ -50,7 +50,7 @@ class FatTopo(Topo):
 
 # run the mininet test
 def simpleTest():
-    topo = FatTopo(k=num)
+    topo = Topo(k=num)
     net = Mininet(topo=topo, link=TCLink, controller=None,
                   autoSetMacs=False, autoStaticArp=True)
     net.addController('controller', controller=RemoteController,
@@ -63,4 +63,3 @@ def simpleTest():
 if __name__ == '__main__':
     setLogLevel('info')
     simpleTest()
-
