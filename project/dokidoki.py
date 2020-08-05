@@ -12,7 +12,7 @@ num = int(sys.argv[1])
 
 
 class FatTopo(Topo):
-    def __init__(self, k=2, **opts):
+    def __init__(self, k, **opts):
         super(FatTopo, self).__init__(**opts)
         Hs = []
         Ss = []
