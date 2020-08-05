@@ -28,7 +28,7 @@ class Topo(Topo):
             Ss.append(self.addHost('s%s' % i, mac='00:00:00:00:00:0%s' % i))
             print('Server s%s added' % i)
             Cs.append(self.addSwitch(
-                'ctrlSwitch' + str(i - 1), dpid='000000000000000' + str(i)))
+                'ctrlSw' + str(i - 1), dpid='000000000000000' + str(i)))
             print('Switch added: dpid = 000000000000000' + str(i))
 
         # generate the hosts
