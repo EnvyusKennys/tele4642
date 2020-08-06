@@ -49,7 +49,6 @@ class Controller(app_manager.RyuApp):
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        print("add %s" % match)
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
         if buffer_id:
@@ -94,22 +93,18 @@ class Controller(app_manager.RyuApp):
         self.matched_host.setdefault(dst, 0)
         self.matched_host.setdefault(src, 0)
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
-
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
 
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
-            self.logger.info("packet in %s %s %s %s  learnt", dpid, src, dst, in_port)
         else:
             out_port = ofproto.OFPP_FLOOD
-            print("flood")
 
         if out_port != ofproto.OFPP_FLOOD:
             if dst == s1 or dst == s2 or dst == s3:
                 if self.flag[dst] == 0:
-                    print("%s connected" % dst)
+                    print("PRINTER CONNECTED")
                     self.matched_host[dst] = src
                     actions = [parser.OFPActionOutput(out_port)]
                     match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
@@ -118,18 +113,18 @@ class Controller(app_manager.RyuApp):
                     match = parser.OFPMatch(in_port=out_port, eth_dst=src, eth_src=dst)
                     self.add_flow(datapath, 10, match, actions)
                     self.flag[dst] = 1
-                    print("Flag = %s" % self.flag[dst])
                 else:
+                    print("ACCESS DENIED")
                     return
             else:
                 if src == s1 or src == s2 or src == s3:
                     if self.flag[src] == 1:
                         self.flag[src] = 0
-                        print("Flag = %d" % self.flag[src])
-                        print("%s clear" % src)
+                        print("PRINTER DISCONNECTED")
                         self.matched_host[src] = 0
                         return
                     else:
+                        print("ACCESS DENIED")
                         return
                 else:
                     actions = [parser.OFPActionOutput(out_port)]
