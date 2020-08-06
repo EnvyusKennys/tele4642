@@ -1,75 +1,143 @@
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.log import setLogLevel, info
-from mininet.link import TCLink
-from mininet.node import RemoteController
-from mininet.node import Node
-from mininet.cli import CLI
-import os
-import sys
-
-num = int(sys.argv[1])
+# tele4642 mini project
 
 
-class Topo(Topo):
-    Hs = []
-    Ss = []
-    Cs = []
-
-    def __init__(self, k, **opts):
-        super(Topo, self).__init__(**opts)
-        # generate the core switch and assign the dpid
-        # info('*** Add switches\n')
-        # switch = self.addSwitch('Switch', dpid='0000000000000001')
-        # print('Switch added: dpid = 0000000000000001')
-
-        # generate the servers
-        info('*** Add servers and ctrl switch\n')
-        for i in range(1, 4):
-            self.Ss.append(self.addHost('s%s' %
-                                        (i - 1), mac='00:00:00:00:00:0%s' % i))
-            print('Server s%s added' % i)
-        self.Cs.append(self.addSwitch(
-            'ctrlSw0', dpid='0000000000000001'))
-        print('Switch added: dpid = 0000000000000001')
-
-        # generate the hosts
-        info('*** Add hosts\n')
-        for i in range(1, k + 1):
-            self.Hs.append(self.addHost('h%s' %
-                                        i, mac='00:00:00:00:00:0%s' % (i + 3)))
-            print('Host h%s added' % i)
-
-        # connect the host with switch
-        for i in range(1, k + 1):
-            self.addLink(self.Cs[0], self.Hs[i - 1])
-
-        # connect the servers with switch
-        for i in range(1, 4):
-            self.addLink(self.Cs[0], self.Ss[i - 1])
-
-    def setOvs(self):
-        self.setproto(self.Cs)
-
-    def setproto(self, list):
-        for sw in list:
-            cmd = "sudo ovs-vsctl set bridge %s protocols=OpenFlow13" % sw
-            os.system(cmd)
+from ryu.base import app_manager
+from ryu.controller import ofp_event
+from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
+from ryu.controller.handler import set_ev_cls
+from ryu.ofproto import ofproto_v1_3
+from ryu.lib.packet import packet
+from ryu.lib.packet import ethernet
+from ryu.lib.packet import ether_types
 
 
-# run the mininet test
-def simpleTest():
-    topo = Topo(k=num)
-    net = Mininet(topo=topo, link=TCLink, controller=None,
-                  autoSetMacs=False, autoStaticArp=True)
-    net.addController('controller', controller=RemoteController,
-                      ip="127.0.0.1", port=6633, protocols="OpenFlow13")
-    net.start()
-    topo.setOvs()
-    CLI(net)
-    net.stop()
+class SimpleSwitch13(app_manager.RyuApp):
+    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
+    def __init__(self, *args, **kwargs):
+        super(SimpleSwitch13, self).__init__(*args, **kwargs)
+        self.mac_to_port = {}
+        self.src_mac = []
+        self.dst_mac = []
+        self.flag = 0
 
-if __name__ == '__main__':
-    setLogLevel('info')
-    simpleTest()
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def switch_features_handler(self, ev):
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        # install table-miss flow entry
+        #
+        # We specify NO BUFFER to max_len of the output action due to
+        # OVS bug. At this moment, if we specify a lesser number, e.g.,
+        # 128, OVS will send Packet-In with invalid buffer_id and
+        # truncated packet data. In that case, we cannot output packets
+        # correctly.  The bug has been fixed in OVS v2.1.0.
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+        self.add_tableflow(datapath, 0, match, actions)
+
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                match=match, instructions=inst)
+        datapath.send_msg(mod)
+
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
+                                    priority=priority, match=match,
+                                    instructions=inst, idle_timeout=10)
+        else:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, instructions=inst, idle_timeout=10)
+        datapath.send_msg(mod)
+
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def _packet_in_handler(self, ev):
+        # If you hit this you might want to increase
+        # the "miss_send_length" of your switch
+        if ev.msg.msg_len < ev.msg.total_len:
+            self.logger.debug("packet truncated: only %s of %s bytes",
+                              ev.msg.msg_len, ev.msg.total_len)
+        msg = ev.msg
+        datapath = msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        in_port = msg.match['in_port']
+
+        flag = 0
+
+        pkt = packet.Packet(msg.data)
+
+        eth = pkt.get_protocols(ethernet.ethernet)[0]
+
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            # ignore lldp packet
+            return
+        dst = eth.dst
+        src = eth.src
+
+        dpid = format(datapath.id, "d").zfill(16)
+        self.mac_to_port.setdefault(dpid, {})
+
+        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+
+        # learn a mac address to avoid FLOOD next time.
+        self.mac_to_port[dpid][src] = in_port
+
+        if dst in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst]
+        else:
+            out_port = ofproto.OFPP_FLOOD
+
+        actions = [parser.OFPActionOutput(out_port)]
+
+        # install a flow to avoid packet_in next time
+        if out_port != ofproto.OFPP_FLOOD:
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+            # verify if we have a valid buffer_id, if yes avoid to send both
+            # flow_mod & packet_out
+            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                return
+            else:
+                self.add_flow(datapath, 1, match, actions)
+        data = None
+        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+            data = msg.data
+
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+                                  in_port=in_port, actions=actions, data=data)
+        datapath.send_msg(out)
+
+    def firewall(self, src, dst):
+        if len(self.src_mac) == 0 and len(self.dst_mac) == 0:
+            self.src_mac.append(src)
+            self.dst_mac.append(dst)
+        else:
+            for i in range(0, len(self.src_mac)):
+                for j in range(0, len(self.src_mac)):
+                    if src == dst_mac[j] and dst == src_mac[i] and i == j:
+                        self.flag = 0
+                        # flag goes to zero, ping between host and server is complete
+                        self.src_mac.remove(src[i])
+                        self.dst_mac.remove(dst[j])
+                    elif dst == dst[j] and src != src_mac[i] and i == j:
+                        actions = self.parser.OFPMatch()
+                        # actions = drop
+                    else:
+                        self.src_mac.append(src)
+                        self.dst_mac.append(dst)
+                        # append, add flow
