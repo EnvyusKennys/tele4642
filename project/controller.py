@@ -9,6 +9,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
+import time
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -20,6 +21,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.src_mac = []
         self.dst_mac = []
         self.flag = 0
+        self.curr_time = 0
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -39,7 +41,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_tableflow(datapath, 0, match, actions)
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+    def add_tableflow(self, datapath, priority, match, actions, buffer_id=None):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -48,6 +50,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                 match=match, instructions=inst)
         datapath.send_msg(mod)
+        # curr_time.append(time.time())
 
     def add_flow(self, datapath, priority, match, actions, buffer_id=None):
         ofproto = datapath.ofproto
@@ -77,8 +80,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
 
-        flag = 0
-
         pkt = packet.Packet(msg.data)
 
         eth = pkt.get_protocols(ethernet.ethernet)[0]
@@ -103,6 +104,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
+        self.firewall(src, dst, datapath, msg.buffer_id)
 
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
@@ -122,22 +124,44 @@ class SimpleSwitch13(app_manager.RyuApp):
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
 
-    def firewall(self, src, dst):
+    def firewall(self, src, dst, dp, buffer_id):
         if len(self.src_mac) == 0 and len(self.dst_mac) == 0:
             self.src_mac.append(src)
             self.dst_mac.append(dst)
         else:
-            for i in range(0, len(self.src_mac)):
-                for j in range(0, len(self.src_mac)):
-                    if src == dst_mac[j] and dst == src_mac[i] and i == j:
-                        self.flag = 0
-                        # flag goes to zero, ping between host and server is complete
-                        self.src_mac.remove(src[i])
-                        self.dst_mac.remove(dst[j])
-                    elif dst == dst[j] and src != src_mac[i] and i == j:
-                        actions = self.parser.OFPMatch()
-                        # actions = drop
-                    else:
-                        self.src_mac.append(src)
-                        self.dst_mac.append(dst)
-                        # append, add flow
+            if src == self.dst_mac[0] and dst == self.src_mac[0]:
+                # handshake
+                self.flag = 1
+                self.curr_time = time.time()
+            else:
+                self.src_mac.remove(self.src_mac[0])
+                self.dst_mac.remove(self.dst_mac[0])
+                self.src_mac.append(src)
+                self.dst_mac.append(dst)
+
+        if self.flag == 1:
+            if (time.time() < self.curr_time + 30):
+                parser = dp.ofproto_parser
+                match = parser.OFPMatch(eth_dst=dst, eth_src=src)
+                self.add_flow(dp, priority=1, match=match,
+                              actions=[], buffer_id=buffer_id)
+                self.curr_time = self.curr_time + 1
+            else:
+                self.flag = 0
+                self.curr_time = 0
+
+       #     else:
+            #         for i in range(0, len(self.src_mac)):
+            #             for j in range(0, len(self.src_mac)):
+            #                 if src == dst_mac[j] and dst == src_mac[i] and i == j:
+            #                     self.flag = 0
+            #                     # flag goes to zero, ping between host and server is complete
+            #                     self.src_mac.remove(src[i])
+            #                     self.dst_mac.remove(dst[j])
+            #                 elif dst == dst[j] and src != src_mac[i] and i == j:
+            #                     actions = self.parser.OFPMatch()
+            #                     # actions = drop
+            #                 else:
+            #                     self.src_mac.append(src)
+            #                     self.dst_mac.append(dst)
+            #                     # append, add flow
