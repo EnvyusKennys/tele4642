@@ -143,9 +143,7 @@ class SimpleSwitch13(app_manager.RyuApp):
             else:
                 self.src_mac.remove(self.src_mac[0])
                 self.dst_mac.remove(self.dst_mac[0])
-                self.src_mac.append(src)
-                self.dst_mac.append(dst)
-                if (time.time() < self.curr_time + 30):
+                if (time.time() < self.curr_time + 30) and self.flag[i] == 1:
                     match = parser.OFPMatch(eth_dst=dst, eth_src=src)
                     self.add_flow(dp, priority=1, match=match,
                                   actions=[], buffer_id=buffer_id)
